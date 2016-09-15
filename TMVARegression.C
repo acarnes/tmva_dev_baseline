@@ -39,12 +39,15 @@
 #include "TMVA/Tools.h"
 #include "TMVA/Factory.h"
 #include "TMVA/TMVARegGui.h"
+#include "TMVA/DataLoader.h"
 
 
 using namespace TMVA;
    
 void TMVARegression( TString myMethodList = "" ) 
 {
+   //gSystem->RedirectOutput("log_ls_new.out");
+
    // The explicit loading of the shared libTMVA is done in TMVAlogon.C, defined in .rootrc
    // if you use your private .rootrc, or run from a different directory, please copy the 
    // corresponding lines from .rootrc
@@ -63,7 +66,7 @@ void TMVARegression( TString myMethodList = "" )
    // --- Here the preparation phase begins
 
    // Create a new root output file
-   TString outfileName( "TMVAMode3Reg.root" );
+   TString outfileName( "TMVAMode3Reg_ad_new.root" );
    TFile* outputFile = TFile::Open( outfileName, "RECREATE" );
 
    // Create the factory object. Later you can choose the methods
@@ -76,9 +79,11 @@ void TMVARegression( TString myMethodList = "" )
    // The second argument is the output file for the training results
    // All TMVA output can be suppressed by removing the "!" (not) in 
    // front of the "Silent" argument in the option string
-   TMVA::Factory *factory = new TMVA::Factory( "TMVARegression", outputFile, 
-                                               "!V:!Silent:Color:DrawProgressBar" );
+   TMVA::Factory *factory = new TMVA::Factory( "TMVARegression", outputFile,
+                                               "!V:!Silent:Color:DrawProgressBar:AnalysisType=Regression" );
 
+
+   TMVA::DataLoader *dataloader=new TMVA::DataLoader("dataset");
    // If you wish to modify default settings 
    // (please check "src/Config.h" to see all available global options)
    //    (TMVA::gConfig().GetVariablePlotting()).fTimesRMS = 8.0;
@@ -87,14 +92,14 @@ void TMVARegression( TString myMethodList = "" )
    // Define the input variables that shall be used for the MVA training
    // note that you may also use variable expressions, such as: "3*var1/var2*abs(var3)"
    // [all types of expressions that can also be parsed by TTree::Draw( "expression" )]
-   factory->AddVariable( "Eta",    "Eta",    "", 'F' );
-   factory->AddVariable( "dPhi12", "dPhi12", "", 'F' );
-   factory->AddVariable( "dEta12", "dEta12", "", 'F' );
-   factory->AddVariable( "clct1",  "clct1",  "", 'F' );
-   factory->AddVariable( "clct2",  "clct2",  "", 'F' );
+   dataloader->AddVariable( "Eta",    "Eta",    "", 'F' );
+   dataloader->AddVariable( "dPhi12", "dPhi12", "", 'F' );
+   dataloader->AddVariable( "dEta12", "dEta12", "", 'F' );
+   dataloader->AddVariable( "clct1",  "clct1",  "", 'F' );
+   dataloader->AddVariable( "clct2",  "clct2",  "", 'F' );
 
    // Add the variable carrying the regression target
-   factory->AddTarget( "GenPt" ); 
+   dataloader->AddTarget( "GenPt" ); 
 
    // It is also possible to declare additional targets for multi-dimensional regression, ie:
    // -- factory->AddTarget( "fvalue2" );
@@ -103,7 +108,7 @@ void TMVARegression( TString myMethodList = "" )
    // Read training and test data (see TMVAClassification for reading ASCII files)
    // load the signal and background event samples from ROOT trees
    TFile *input(0);
-   TString fname = "../ptrootfiles/Output_Trimmed_97p5_Mode3_100k.root";
+   TString fname = "/afs/cern.ch/user/a/acarnes/public/iml/ptrootfiles/inc/Output_Trimmed_97p5_Mode3_100k.root";
 
    if (!gSystem->AccessPathName( fname )) 
       input = TFile::Open( fname ); // check if file in local directory exists
@@ -124,13 +129,13 @@ void TMVARegression( TString myMethodList = "" )
    Double_t regWeight  = 1.0;   
 
    // You can add an arbitrary number of regression trees
-   factory->AddRegressionTree( regTree, regWeight );
+   dataloader->AddRegressionTree( regTree, regWeight );
 
    // Apply additional cuts on the signal and background samples (can be different)
    TCut mycut = ""; // for example: TCut mycut = "abs(var1)<0.5 && abs(var2-0.5)<1";
 
    // tell the factory to use all remaining events in the trees after training for testing:
-   factory->PrepareTrainingAndTestTree( mycut, 
+   dataloader->PrepareTrainingAndTestTree( mycut, 
                                          "nTrain_Regression=100000:nTest_Regression=0:SplitMode=Random:NormMode=NumEvents:!V" );
    // factory->PrepareTrainingAndTestTree( mycut, 
    //                                      "nTrain_Regression=0:nTest_Regression=0:SplitMode=Random:NormMode=NumEvents:!V" );
@@ -146,8 +151,11 @@ void TMVARegression( TString myMethodList = "" )
    // it is possible to preset ranges in the option string in which the cut optimisation should be done:
    // "...:CutRangeMin[2]=-1:CutRangeMax[2]=1"...", where [2] is the third input variable
 
-   factory->BookMethod( TMVA::Types::kBDT, "BDTG",
-                           "!H:!V:NTrees=64::BoostType=Grad:Shrinkage=0.3:nCuts=99999:MaxDepth=4:MinNodeSize=0.001:NegWeightTreatment=IgnoreNegWeightsInTraining" );
+   factory->BookMethod( dataloader, TMVA::Types::kBDT, "BDTG",
+   "!H:!V:NTrees=64::BoostType=Grad:Shrinkage=0.3:nCuts=99999:MaxDepth=4:MinNodeSize=0.001:NegWeightTreatment=IgnoreNegWeightsInTraining:PruneMethod=NoPruning:RegressionLossFunctionBDTG=AbsoluteDeviation" );
+   
+//   factory->BookMethod( dataloader, TMVA::Types::kBDT, "BDTG",
+//   "!H:!V:NTrees=64::BoostType=Grad:Shrinkage=0.3:nCuts=99999:MaxDepth=4:MinNodeSize=0.001:NegWeightTreatment=IgnoreNegWeightsInTraining:HuberQuantile=0" );
    // --------------------------------------------------------------------------------------------------
 
    // ---- Now you can tell the factory to train, test, and evaluate the MVAs
@@ -176,6 +184,7 @@ void TMVARegression( TString myMethodList = "" )
    TString prefix = "TMVARegression";
 
    delete factory;
+   delete dataloader;
 }
 
 int main( int argc, char** argv )

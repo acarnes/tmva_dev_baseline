@@ -57,7 +57,7 @@ void TMVARegressionApplication( TString myMethodList = "" )
 
    // --- Book the MVA methods
 
-   TString dir    = "weights/";
+   TString dir    = "dataset/weights/";
    TString prefix = "TMVARegression";
 
    // Book method(s)
@@ -70,7 +70,7 @@ void TMVARegressionApplication( TString myMethodList = "" )
    // we'll later on use only the "signal" events for the test in this example.
    //   
    TFile *input(0);
-   TString fname = "../ptrootfiles/Output_Trimmed_97p5_TEST_Mode3_100k.root";
+   TString fname = "/afs/cern.ch/user/a/acarnes/public/iml/ptrootfiles/inc/Output_Trimmed_97p5_TEST_Mode3_100k.root";
    if (!gSystem->AccessPathName( fname )) 
    {
       input = TFile::Open( fname ); // check if file in local directory exists
@@ -98,7 +98,7 @@ void TMVARegressionApplication( TString myMethodList = "" )
    theTree->SetBranchAddress( "clct2", &clct2 );
    theTree->SetBranchAddress( "GenPt", &GenPt );
 
-   TFile* outfile = new TFile("test_results_TMVA.root", "RECREATE");
+   TFile* outfile = new TFile("test_results_TMVA_ad_finalish.root", "RECREATE");
    outfile->cd();
    TString ntupleVars("GenPt:BDTPt:Eta:dPhi12:dEta12:clct1:clct2");
    TNtuple* n = new TNtuple("BDTresults", "BDTresults", ntupleVars);
